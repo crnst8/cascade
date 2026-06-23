@@ -66,6 +66,12 @@ python3 cascade.py -q "..."   # one-shot prompt
 python3 cascade.py --serve    # run as an OpenAI-compatible REST API (see below)
 ```
 
+### Importable one-shot (`cascade.ask`)
+
+`import cascade; cascade.ask("...", system="...")` returns a clean completion
+string using the same best-first routing and failover as the CLI, with no
+terminal decoration — handy for embedding cascade in other scripts.
+
 ### In-chat commands
 
 | command         | what it does                                            |

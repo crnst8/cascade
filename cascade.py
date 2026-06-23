@@ -1281,6 +1281,41 @@ def _arg_value(args, flag):
 
 
 # ----------------------------------------------------------------------------
+# Library entrypoint — programmatic one-shot with the same routing + failover.
+# ----------------------------------------------------------------------------
+def ask(prompt, system=None, max_tokens=512, temperature=0.4):
+    """Return a clean one-shot completion string, no terminal decoration.
+
+    Discovers models and tries them best-first with the same failover as the
+    CLI, capturing output silently. Raises RuntimeError if every model fails.
+    Intended for importers: `import cascade; cascade.ask("...")`.
+    """
+    load_state()
+    env, _ = load_env()
+    providers = build_providers(env)
+    if not providers:
+        raise RuntimeError("cascade: no providers configured (add a key to .env)")
+    cands = build_leaderboard(providers)
+    if not cands:
+        raise RuntimeError("cascade: no usable models discovered")
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    errors = []
+    for cand in next_available(cands, None):
+        ok, text, err = call_model(
+            cand, messages, stream=False,
+            max_tokens=max_tokens, temperature=temperature, sink=Sink(),
+        )
+        if ok:
+            return (text or "").strip()
+        apply_failure(cand, err)
+        errors.append(f"{cand.short()}: {err.get('type')}")
+    raise RuntimeError("cascade: all models failed — " + "; ".join(errors[:5]))
+
+
+# ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
 def main():
